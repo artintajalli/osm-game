@@ -1,1 +1,273 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OSM Pro Simulator - Ultimate</title>
+    <style>
+        :root { --primary: #2ecc71; --secondary: #3498db; --dark: #1a1a1a; --card: #2c3e50; --text: #ecf0f1; --danger: #e74c3c; }
+        body { font-family: Tahoma, sans-serif; background-color: var(--dark); color: var(--text); margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .container { width: 100%; max-width: 450px; background: var(--card); min-height: 90vh; border-radius: 15px; overflow: hidden; display: flex; flex-direction: column; position: relative; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        .screen { display: none; padding: 20px; flex-grow: 1; animation: fadeIn 0.3s; }
+        .active { display: block !important; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        input { width: 90%; padding: 12px; margin: 10px 0; border-radius: 8px; border: none; background: #34495e; color: white; }
+        button { width: 90%; padding: 12px; margin: 10px 0; border: none; border-radius: 8px; background: var(--primary); color: white; font-weight: bold; cursor: pointer; }
+        button:active { transform: scale(0.98); }
+        .header { background: #2c3e50; padding: 15px; border-bottom: 2px solid var(--primary); display: flex; justify-content: space-between; }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 20px 0; }
+        .stat-card { background: #34495e; padding: 15px; border-radius: 10px; text-align: center; }
+        .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .menu-item { background: var(--secondary); padding: 20px; border-radius: 12px; text-align: center; cursor: pointer; font-weight: bold; }
+        .match-card { background: #34495e; padding: 20px; border-radius: 15px; text-align: center; margin-bottom: 20px; }
+        .score { font-size: 2.5rem; color: var(--primary); margin: 10px 0; }
+        .league-item { background: #34495e; padding: 10px; margin: 5px 0; border-radius: 5px; display: flex; justify-content: space-between; }
+        .player-card { background: #34495e; padding: 10px; margin: 5px 0; border-radius: 5px; display: flex; justify-content: space-between; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- Login -->
+    <div id="screenLogin" class="screen active">
+        <h1 style="text-align: center; color: var(--primary);">⚽ OSM PRO</h1>
+        <p style="text-align: center;">وارد حساب خود شوید</p>
+        <input type="text" id="username" placeholder="نام کاربری">
+        <input type="password" id="password" placeholder="رمز عبور">
+        <button onclick="handleStart()">شروع بازی</button>
+    </div>
+
+    <!-- Dashboard -->
+    <div id="screenDashboard" class="screen">
+        <div class="header">
+            <span id="dispUser">کاربر</span>
+            <span id="dispMoney" style="color: #f1c40f;">0 💰</span>
+        </div>
+        <div class="stats-grid">
+            <div class="stat-card"><small>قدرت تیم</small><div id="teamRating" style="font-size: 1.5rem;">0</div></div>
+            <div class="stat-card"><small>رتبه</small><div id="teamRank" style="font-size: 1.5rem;">1</div></div>
+        </div>
+        <div class="menu-grid">
+            <div class="menu-item" onclick="showScreen('screenMatch')">⚽ مسابقه</div>
+            <div class="menu-item" onclick="showScreen('screenLeague')">🏆 جدول</div>
+            <div class="menu-item" onclick="showScreen('screenShop')">🛒 فروشگاه</div>
+            <div class="menu-item" onclick="showScreen('screenPlayers')">🏃 بازیکنان</div>
+        </div>
+    </div>
+
+    <!-- Match -->
+    <div id="screenMatch" class="screen">
+        <h3>مسابقه بعدی</h3>
+        <div class="match-card">
+            <div id="matchTeams">تیم شما vs رقیب</div>
+            <div class="score" id="matchScore">0 - 0</div>
+        </div>
+        <button id="playBtn" onclick="playMatch()">شروع مسابقه!</button>
+        <button onclick="showScreen('screenDashboard')" style="background: var(--danger);">بازگشت</button>
+    </div>
+
+    <!-- League -->
+    <div id="screenLeague" class="screen">
+        <h3>جدول لیگ</h3>
+        <div id="leagueTable"></div>
+        <button onclick="showScreen('screenDashboard')" style="background: var(--danger);">بازگشت</button>
+    </div>
+
+    <!-- Shop -->
+    <div id="screenShop" class="screen">
+        <h3>فروشگاه</h3>
+        <button onclick="buyPack(500)">بسته معمولی (500 💰)</button>
+        <button onclick="buyPack(1200)">بسته طلایی (1200 💰)</button>
+        <button onclick="showScreen('screenDashboard')" style="background: var(--danger);">بازگشت</button>
+    </div>
+
+    <!-- Players -->
+    <div id="screenPlayers" class="screen">
+        <h3>لیست بازیکنان</h3>
+        <div id="playerList"></div>
+        <button onclick="showScreen('screenDashboard')" style="background: var(--danger);">بازگشت</button>
+    </div>
+</div>
+
+<!-- حالا منتظر بخش JavaScript باش که در پیام بعدی می‌فرستم -->
+<script>
+    // --- GAME STATE ---
+    let gameState = {
+        user: "Manager",
+        money: 2000,
+        teamRating: 80,
+        rank: 1,
+        // بازیکنان خفن تو
+        players: [
+            { name: "اهورا پا کج", rating: 85 },
+            { name: "ارتین شل دست", rating: 82 },
+            { name: "طاها مگوایر", rating: 78 },
+            { name: "سام جکسون", rating: 88 },
+            { name: "نیمار", rating: 90 },
+            { name: "رونالدو", rating: 92 },
+            { name: "لیونل پپسی", rating: 93 },
+            { name: "لواندوفسکی", rating: 89 },
+            { name: "کوتینیو", rating: 84 },
+            { name: "مولر", rating: 86 }
+        ],
+        // تیم‌های لیگ
+        league: [
+            { name: "تیم شما", points: 0, rating: 85 },
+            { name: "رئال", points: 0, rating: 88 },
+            { name: "بارسا", points: 0, rating: 86 },
+            { name: "ارسنال", points: 0, rating: 84 },
+            { name: "یونایتد", points: 0, rating: 82 },
+            { name: "سیتی", points: 0, rating: 90 },
+            { name: "اتلتیکو مادرید", points: 0, rating: 83 },
+            { name: "بایرن", points: 0, rating: 87 },
+            { name: "پی اس جی", points: 0, rating: 89 }
+        ]
+    };
+
+    // --- CORE FUNCTIONS ---
+
+    function handleStart() {
+        const userInp = document.getElementById('username').value;
+        const passInp = document.getElementById('password').value;
+        if (userInp.trim() === "" || passInp.trim() === "") {
+            alert("لطفا نام کاربری و رمز عبور را وارد کنید!");
+            return;
+        }
+        gameState.user = userInp;
+        showScreen('screenDashboard');
+        updateUI();
+    }
+
+    function showScreen(screenId) {
+        const screens = document.querySelectorAll('.screen');
+        screens.forEach(s => s.classList.remove('active'));
+        const target = document.getElementById(screenId);
+        if (target) target.classList.add('active');
+
+        if (screenId === 'screenLeague') renderLeague();
+        if (screenId === 'screenPlayers') renderPlayers();
+        if (screenId === 'screenDashboard') updateUI();
+    }
+
+    function updateUI() {
+        document.getElementById('dispUser').innerText = gameState.user;
+        document.getElementById('dispMoney').innerText = gameState.money + " 💰";
+        document.getElementById('teamRating').innerText = gameState.teamRating;
+        document.getElementById('teamRank').innerText = gameState.rank;
+    }
+
+    // --- MATCH ENGINE (With Automatic League Matches) ---
+    async function playMatch() {
+        const btn = document.getElementById('playBtn');
+        const scoreDisplay = document.getElementById('matchScore');
+        const matchTeams = document.getElementById('matchTeams');
+        
+        btn.disabled = true;
+        
+        // 1. پیدا کردن رقیب برای کاربر
+        const userTeam = gameState.league.find(t => t.name === "تیم شما");
+        const opponent = gameState.league.filter(t => t.name !== "تیم شما")[Math.floor(Math.random() * (gameState.league.length - 1))];
+
+        matchTeams.innerHTML = `تیم شما vs ${opponent.name}`;
+        scoreDisplay.innerText = "⏳";
+
+        // شبیه‌سازی بازی کاربر
+        let myScore = 0;
+        let oppScore = 0;
+        let matchLog = [];
+
+        for (let minute = 1; minute <= 90; minute++) {
+            let chance = Math.random() * 100;
+            if (chance < 1.5) { myScore++; matchLog.push(`دقیقه ${minute}: ⚽ گل!`); }
+            else if (chance < 3) { oppScore++; matchLog.push(`دقیقه ${minute}: 🥅 گل خوردید!`); }
+            else if (chance < 6) { matchLog.push(`دقیقه ${minute}: 🚩 کرنر!`); }
+            else if (chance < 8) { matchLog.push(`دقیقه ${minute}: ⚠️ پنالتی!`); }
+            
+            if (minute % 30 === 0) await new Promise(r => setTimeout(r, 300)); 
+        }
+
+        scoreDisplay.innerText = `${myScore} - ${oppScore}`;
+        
+        // آپدیت امتیازات کاربر
+        if (myScore > oppScore) {
+            gameState.money += 200;
+            userTeam.points += 3;
+        } else if (myScore === oppScore) {
+            gameState.money += 50;
+            userTeam.points += 1;
+        }
+
+        // 2. شبیه‌سازی بازی بقیه تیم‌ها (Automatic League Simulation)
+        // ما لیست تیم‌ها رو می‌گیریم و جفت جفت با هم بازی می‌دیم
+        let otherTeams = gameState.league.filter(t => t.name !== "تیم شما");
+        
+        // برای سادگی، هر بار که تو بازی می‌کنی، تیم‌های دیگه هم یک بازی انجام می‌دن
+        for (let i = 0; i < otherTeams.length; i += 2) {
+            if (i + 1 < otherTeams.length) {
+                const t1 = otherTeams[i];
+                const t2 = otherTeams[i+1];
+                
+                // محاسبه نتیجه بر اساس قدرت (Rating)
+                const score1 = Math.floor(Math.random() * (t1.rating / 20));
+                const score2 = Math.floor(Math.random() * (t2.rating / 20));
+
+                if (score1 > score2) t1.points += 3;
+                else if (score1 === score2) { t1.points += 1; t2.points += 1; }
+                else t2.points += 3;
+            }
+        }
+
+        alert(`بازی تمام شد!\nنتیجه: ${myScore} - ${oppScore}\n\n(بقیه تیم‌ها هم بازی کردند و جدول آپدیت شد)`);
+        
+        btn.disabled = false;
+        updateUI();
+    }
+
+    function renderLeague() {
+        const container = document.getElementById('leagueTable');
+        container.innerHTML = "";
+        // مرتب‌سازی بر اساس امتیاز
+        gameState.league.sort((a, b) => b.points - a.points);
+        
+        // آپدیت رتبه کاربر
+        const userIdx = gameState.league.findIndex(t => t.name === "تیم شما");
+        gameState.rank = userIdx + 1;
+
+        gameState.league.forEach((team, index) => {
+            const div = document.createElement('div');
+            div.className = 'league-item';
+            if(team.name === "تیم شما") div.style.border = "2px solid #2ecc71";
+            div.innerHTML = `<span>${index + 1}. ${team.name}</span> <span>${team.points} امتیاز</span>`;
+            container.appendChild(div);
+        });
+    }
+
+    function buyPack(cost) {
+        if (gameState.money >= cost) {
+            gameState.money -= cost;
+            // خرید بازیکن تصادفی از لیست خفن‌های بالا
+            const names = ["اهورا پا کج", "ارتین شل دست", "طاها مگوایر", "سام جکسون", "نیمار", "رونالدو", "لیونل پپسی", "لواندوفسکی", "کوتینیو", "مولر"];
+            const randomName = names[Math.floor(Math.random() * names.length)];
+            const newRating = Math.floor(Math.random() * 10) + 85;
+            
+            gameState.players.push({ name: randomName, rating: newRating });
+            gameState.teamRating = Math.min(99, gameState.teamRating + 1);
+            
+            alert(`بسته خریداری شد! ${randomName} به تیم اضافه شد!`);
+            updateUI();
+        } else {
+            alert("پول نداری رفیق! برو مسابقه بده.");
+        }
+    }
+
+    function renderPlayers() {
+        const container = document.getElementById('playerList');
+        container.innerHTML = "";
+        gameState.players.forEach(p => {
+            const div = document.createElement('div');
+            div.className = 'player-card';
+            div.innerHTML = `<span>${p.name}</span> <span>⭐ ${p.rating}</span>`;
+            container.appendChild(div);
+        });
+    }
+</script>
 
